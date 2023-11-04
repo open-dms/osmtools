@@ -14,7 +14,6 @@ repos:
     rev: v1.16.19
     hooks:
       - id: typos
-        exclude: "vscode/package-lock.json"
   - repo: https://github.com/igorshubovych/markdownlint-cli
     rev: v0.37.0
     hooks:
@@ -23,8 +22,10 @@ repos:
     rev: v4.5.0
     hooks:
       - id: trailing-whitespace
-        exclude: "^tests/Baseline"
       - id: end-of-file-fixer
-        exclude: "^tests/Baseline|^doc/autogen|^doc/_static"
       - id: check-yaml
       - id: check-added-large-files
+  - repo: https://github.com/google/yamlfmt
+    rev: v0.10.0
+    hooks:
+      - id: yamlfmt
