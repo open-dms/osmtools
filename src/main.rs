@@ -99,7 +99,7 @@ fn to_stats(relations: &BTreeMap<OsmId, OsmObj>) {
 
     for (boundary_type, count) in boundary_types.iter().sorted_by(|a, b| Ord::cmp(&b.1, &a.1)) {
         if let Some(b_type) = boundary_type {
-            println!("{} {}", b_type, count);
+            println!("{b_type} {count}");
         }
     }
 }
@@ -112,7 +112,7 @@ fn to_jsonl(relations: &BTreeMap<OsmId, OsmObj>) {
         .filter(|obj| filter_target_relations(obj))
     {
         let serialized = to_string(&relation).unwrap();
-        writeln!(buffer, "{}", serialized).unwrap();
+        writeln!(buffer, "{serialized}").unwrap();
     }
 
     buffer.flush().unwrap();
