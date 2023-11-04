@@ -1,18 +1,14 @@
 name: Check
-
 on:
   pull_request:
   push:
     branches: [main]
-
 env:
   CARGO_INCREMENTAL: 0
   RUSTFLAGS: -D warnings
-
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -21,7 +17,6 @@ jobs:
           key: pre-commit-cargo-${{ hashFiles('Cargo.lock') }}
       - name: Test
         run: cargo test
-
   pre-commit:
     name: Run pre-commit hooks
     runs-on: ubuntu-latest
