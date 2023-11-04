@@ -105,7 +105,5 @@ fn to_jsonl(relations: &BTreeMap<OsmId, OsmObj>) -> Result<()> {
         writeln!(buffer, "{serialized}")?;
     }
 
-    buffer.flush()?;
-
     Ok(())
 }
