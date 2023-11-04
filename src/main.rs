@@ -1,6 +1,6 @@
 use std::{
     collections::{BTreeMap, HashMap},
-    io::{stdout, BufWriter, Write},
+    io::{self, stdout, BufWriter, Write},
     path::PathBuf,
 };
 
@@ -21,8 +21,13 @@ const TARGET_BOUNDARY_TYPES: &[&str] = &[
 
 #[derive(Parser)]
 struct Cli {
+    /// PBF file to read.
     #[arg(short, long)]
     in_file: PathBuf,
+
+    /// Path to output file. If unspecified output is written to stdout.
+    #[arg(short, long)]
+    out_file: Option<PathBuf>,
 
     #[command(subcommand)]
     command: Option<Commands>,
@@ -42,16 +47,20 @@ fn main() -> Result<()> {
 
     info!("Unpacking relations from {:?}", cli.in_file);
 
-    match &cli.command {
-        Some(Commands::Stats) => {
-            let relations = load_relations(cli.in_file, filter_target_relations)?;
-            info!("Gathering some stats..");
-            to_stats(&relations);
-        }
-        None => {
-            let relations = load_relations(cli.in_file, filter_all_relations)?;
-            to_jsonl(&relations)?;
-        }
+    let out: Box<dyn io::Write> = if let Some(f) = cli.out_file {
+        let f = std::fs::File::create(f)?;
+        Box::new(f)
+    } else {
+        Box::new(stdout())
+    };
+
+    if let Some(Commands::Stats) = cli.command {
+        let relations = load_relations(cli.in_file, filter_target_relations)?;
+        info!("Gathering some stats..");
+        to_stats(&relations, out)?;
+    } else {
+        let relations = load_relations(cli.in_file, filter_all_relations)?;
+        to_jsonl(&relations, out)?;
     }
 
     Ok(())
@@ -82,7 +91,7 @@ where
     Ok(relations)
 }
 
-fn to_stats(relations: &BTreeMap<OsmId, OsmObj>) {
+fn to_stats(relations: &BTreeMap<OsmId, OsmObj>, mut out: impl io::Write) -> Result<()> {
     let mut boundary_types = HashMap::<&str, usize>::new();
 
     for boundary in relations
@@ -94,12 +103,15 @@ fn to_stats(relations: &BTreeMap<OsmId, OsmObj>) {
     }
 
     for (boundary_type, count) in boundary_types.iter().sorted_by(|a, b| Ord::cmp(&b.1, &a.1)) {
-        println!("{boundary_type} {count}");
+        writeln!(out, "{boundary_type} {count}")?;
     }
+
+    Ok(())
 }
 
-fn to_jsonl(relations: &BTreeMap<OsmId, OsmObj>) -> Result<()> {
-    let mut buffer = BufWriter::new(stdout());
+fn to_jsonl(relations: &BTreeMap<OsmId, OsmObj>, out: impl io::Write) -> Result<()> {
+    // Use a buffered writer to amortize flushes.
+    let mut buffer = BufWriter::new(out);
 
     for relation in relations
         .values()
