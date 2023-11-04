@@ -30,7 +30,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    Stats {},
+    Stats,
 }
 
 fn main() -> Result<()> {
@@ -40,7 +40,7 @@ fn main() -> Result<()> {
     let relations: BTreeMap<OsmId, OsmObj>;
 
     match &cli.command {
-        Some(Commands::Stats {}) => {
+        Some(Commands::Stats) => {
             relations = load_relations(cli.in_file, filter_all_relations)?;
             eprintln!("Gathering some stats..");
             to_stats(&relations);
