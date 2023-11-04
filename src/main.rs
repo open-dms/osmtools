@@ -64,11 +64,7 @@ fn filter_all_relations(obj: &OsmObj) -> bool {
     obj.is_relation()
         && obj.tags().contains_key("name")
         && obj.tags().get("admin_level").map_or(false, |admin_level| {
-            admin_level == "2"
-                || admin_level == "4"
-                || admin_level == "6"
-                || admin_level == "7"
-                || admin_level == "8"
+            matches!(admin_level.as_str(), "2" | "4" | "6" | "7" | "8")
         })
 }
 
