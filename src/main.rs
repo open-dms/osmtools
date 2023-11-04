@@ -7,8 +7,10 @@ use std::{
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use itertools::Itertools;
+use log::info;
 use osmpbfreader::{OsmId, OsmObj, OsmPbfReader};
 use serde_json::to_string;
+use simple_logger::SimpleLogger;
 
 const TARGET_BOUNDARY_TYPES: &[&str] = &[
     "administrative",
@@ -34,12 +36,16 @@ enum Commands {
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    eprintln!("Unpacking relations from {:?}", cli.in_file);
+    SimpleLogger::new()
+        .with_level(log::LevelFilter::Info)
+        .init()?;
+
+    info!("Unpacking relations from {:?}", cli.in_file);
 
     match &cli.command {
         Some(Commands::Stats) => {
             let relations = load_relations(cli.in_file, filter_target_relations)?;
-            eprintln!("Gathering some stats..");
+            info!("Gathering some stats..");
             to_stats(&relations);
         }
         None => {
