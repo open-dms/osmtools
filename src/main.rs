@@ -18,8 +18,6 @@ const TARGET_BOUNDARY_TYPES: &[&str] = &[
 ];
 
 #[derive(Parser)]
-#[command(name = "osmpbf-filter")]
-#[command(bin_name = "osmpbf-filter")]
 struct Cli {
     #[arg(short, long)]
     in_file: PathBuf,
