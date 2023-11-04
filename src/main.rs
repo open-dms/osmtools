@@ -83,18 +83,14 @@ where
 }
 
 fn to_stats(relations: &BTreeMap<OsmId, OsmObj>) {
-    let mut boundary_types = HashMap::new();
+    let mut boundary_types = HashMap::<&str, usize>::new();
 
     for boundary in relations
         .values()
         .filter(|obj| filter_all_relations(obj))
         .filter_map(|obj| obj.tags().get("boundary"))
     {
-        if let Some(count) = boundary_types.get_mut(&boundary) {
-            *count += 1;
-        } else {
-            boundary_types.insert(boundary, 1);
-        }
+        *boundary_types.entry(boundary).or_default() += 1;
     }
 
     for (boundary_type, count) in boundary_types.iter().sorted_by(|a, b| Ord::cmp(&b.1, &a.1)) {
