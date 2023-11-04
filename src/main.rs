@@ -55,9 +55,9 @@ fn main() -> Result<()> {
 
 fn filter_target_relations(obj: &OsmObj) -> bool {
     filter_all_relations(obj)
-        && (obj.tags().get("boundary").map_or(false, |boundary| {
+        && obj.tags().get("boundary").map_or(false, |boundary| {
             TARGET_BOUNDARY_TYPES.contains(&boundary.as_str())
-        }))
+        })
 }
 
 fn filter_all_relations(obj: &OsmObj) -> bool {
