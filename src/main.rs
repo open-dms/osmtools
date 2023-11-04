@@ -4,7 +4,7 @@ use std::{
     path::PathBuf,
 };
 
-use anyhow::{Ok, Result};
+use anyhow::Result;
 use clap::{Parser, Subcommand};
 use itertools::Itertools;
 use osmpbfreader::{OsmId, OsmObj, OsmPbfReader};
