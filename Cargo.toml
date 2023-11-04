@@ -1,0 +1,15 @@
+[package]
+name = "osmpbf-filter"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0.75"
+clap = { version = "4.4.7", features = ["derive"] }
+itertools = "0.11.0"
+osmpbfreader = "0.16.0"
+serde = "1.0.190"
+serde_json = "1.0.108"
+smartstring = "1.0.1"
