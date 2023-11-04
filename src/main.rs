@@ -9,7 +9,6 @@ use clap::{Parser, Subcommand};
 use itertools::Itertools;
 use osmpbfreader::{OsmId, OsmObj, OsmPbfReader};
 use serde_json::to_string;
-use smartstring::{LazyCompact, SmartString};
 
 const TARGET_BOUNDARY_TYPES: &[&str] = &[
     "administrative",
@@ -37,13 +36,13 @@ enum Commands {
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    println!("Unpacking relations from {:?}", cli.in_file);
+    eprintln!("Unpacking relations from {:?}", cli.in_file);
     let relations: BTreeMap<OsmId, OsmObj>;
 
     match &cli.command {
         Some(Commands::Stats {}) => {
             relations = load_relations(cli.in_file, filter_target_relations)?;
-            println!("Gathering some stats..");
+            eprintln!("Gathering some stats..");
             to_stats(&relations);
         }
         None => {
@@ -86,12 +85,10 @@ where
     Ok(relations)
 }
 
-fn count_boundary_types(
-    relations: &BTreeMap<OsmId, OsmObj>,
-) -> HashMap<Option<&SmartString<LazyCompact>>, i32> {
+fn to_stats(relations: &BTreeMap<OsmId, OsmObj>) {
     let mut boundary_types = HashMap::new();
 
-    for relation in relations.values() {
+    for relation in relations.values().filter(|obj| filter_all_relations(obj)) {
         let boundary = relation.tags().get("boundary");
         if let Some(count) = boundary_types.get_mut(&boundary) {
             *count += 1;
@@ -100,15 +97,7 @@ fn count_boundary_types(
         }
     }
 
-    boundary_types
-}
-
-fn to_stats(relations: &BTreeMap<OsmId, OsmObj>) {
-    let boundary_counts = count_boundary_types(relations);
-    for (boundary_type, count) in boundary_counts
-        .iter()
-        .sorted_by(|a, b| Ord::cmp(&b.1, &a.1))
-    {
+    for (boundary_type, count) in boundary_types.iter().sorted_by(|a, b| Ord::cmp(&b.1, &a.1)) {
         if let Some(b_type) = boundary_type {
             println!("{} {}", b_type, count);
         }
@@ -118,8 +107,11 @@ fn to_stats(relations: &BTreeMap<OsmId, OsmObj>) {
 fn to_jsonl(relations: &BTreeMap<OsmId, OsmObj>) {
     let mut buffer = BufWriter::new(stdout());
 
-    for relatoin in relations {
-        let serialized = to_string(&relatoin).unwrap();
+    for relation in relations
+        .values()
+        .filter(|obj| filter_target_relations(obj))
+    {
+        let serialized = to_string(&relation).unwrap();
         writeln!(buffer, "{}", serialized).unwrap();
     }
 
