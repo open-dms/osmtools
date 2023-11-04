@@ -61,17 +61,15 @@ fn filter_target_relations(obj: &OsmObj) -> bool {
 }
 
 fn filter_all_relations(obj: &OsmObj) -> bool {
-    obj.is_relation() && obj.tags().contains_key("name") && {
-        if let Some(admin_level) = obj.tags().get("admin_level") {
+    obj.is_relation()
+        && obj.tags().contains_key("name")
+        && obj.tags().get("admin_level").map_or(false, |admin_level| {
             admin_level == "2"
                 || admin_level == "4"
                 || admin_level == "6"
                 || admin_level == "7"
                 || admin_level == "8"
-        } else {
-            false
-        }
-    }
+        })
 }
 
 fn load_relations<F>(path: PathBuf, pred: F) -> Result<BTreeMap<osmpbfreader::OsmId, OsmObj>>
