@@ -85,8 +85,11 @@ where
 fn to_stats(relations: &BTreeMap<OsmId, OsmObj>) {
     let mut boundary_types = HashMap::new();
 
-    for relation in relations.values().filter(|obj| filter_all_relations(obj)) {
-        let boundary = relation.tags().get("boundary");
+    for boundary in relations
+        .values()
+        .filter(|obj| filter_all_relations(obj))
+        .filter_map(|obj| obj.tags().get("boundary"))
+    {
         if let Some(count) = boundary_types.get_mut(&boundary) {
             *count += 1;
         } else {
@@ -95,9 +98,7 @@ fn to_stats(relations: &BTreeMap<OsmId, OsmObj>) {
     }
 
     for (boundary_type, count) in boundary_types.iter().sorted_by(|a, b| Ord::cmp(&b.1, &a.1)) {
-        if let Some(b_type) = boundary_type {
-            println!("{b_type} {count}");
-        }
+        println!("{boundary_type} {count}");
     }
 }
 
