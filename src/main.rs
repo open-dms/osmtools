@@ -47,7 +47,7 @@ fn main() -> Result<()> {
         }
         None => {
             relations = load_relations(cli.in_file, filter_all_relations)?;
-            to_jsonl(&relations);
+            to_jsonl(&relations)?;
         }
     }
 
@@ -104,16 +104,18 @@ fn to_stats(relations: &BTreeMap<OsmId, OsmObj>) {
     }
 }
 
-fn to_jsonl(relations: &BTreeMap<OsmId, OsmObj>) {
+fn to_jsonl(relations: &BTreeMap<OsmId, OsmObj>) -> Result<()> {
     let mut buffer = BufWriter::new(stdout());
 
     for relation in relations
         .values()
         .filter(|obj| filter_target_relations(obj))
     {
-        let serialized = to_string(&relation).unwrap();
-        writeln!(buffer, "{serialized}").unwrap();
+        let serialized = to_string(&relation)?;
+        writeln!(buffer, "{serialized}")?;
     }
 
-    buffer.flush().unwrap();
+    buffer.flush()?;
+
+    Ok(())
 }
