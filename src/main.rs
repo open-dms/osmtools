@@ -68,7 +68,7 @@ fn filter_all_relations(obj: &OsmObj) -> bool {
         })
 }
 
-fn load_relations<F>(path: PathBuf, pred: F) -> Result<BTreeMap<osmpbfreader::OsmId, OsmObj>>
+fn load_relations<F>(path: PathBuf, pred: F) -> Result<BTreeMap<OsmId, OsmObj>>
 where
     F: FnMut(&OsmObj) -> bool,
 {
