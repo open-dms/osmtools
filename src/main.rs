@@ -41,12 +41,12 @@ fn main() -> Result<()> {
 
     match &cli.command {
         Some(Commands::Stats {}) => {
-            relations = load_relations(cli.in_file, filter_target_relations)?;
+            relations = load_relations(cli.in_file, filter_all_relations)?;
             eprintln!("Gathering some stats..");
             to_stats(&relations);
         }
         None => {
-            relations = load_relations(cli.in_file, filter_all_relations)?;
+            relations = load_relations(cli.in_file, filter_target_relations)?;
             to_jsonl(&relations);
         }
     }
