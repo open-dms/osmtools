@@ -37,16 +37,15 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
 
     eprintln!("Unpacking relations from {:?}", cli.in_file);
-    let relations: BTreeMap<OsmId, OsmObj>;
 
     match &cli.command {
         Some(Commands::Stats) => {
-            relations = load_relations(cli.in_file, filter_all_relations)?;
+            let relations = load_relations(cli.in_file, filter_all_relations)?;
             eprintln!("Gathering some stats..");
             to_stats(&relations);
         }
         None => {
-            relations = load_relations(cli.in_file, filter_target_relations)?;
+            let relations = load_relations(cli.in_file, filter_target_relations)?;
             to_jsonl(&relations)?;
         }
     }
