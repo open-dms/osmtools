@@ -54,12 +54,9 @@ fn main() -> Result<()> {
     };
 
     if let Some(Commands::Stats) = cli.command {
-        let relations = load_relations(cli.in_file, filter_target_relations)?;
-        info!("Gathering some stats..");
-        to_stats(&relations, out)?;
+        to_stats(load_relations(cli.in_file, filter_all_relations)?, out)?;
     } else {
-        let relations = load_relations(cli.in_file, filter_all_relations)?;
-        to_jsonl(&relations, out)?;
+        to_jsonl(load_relations(cli.in_file, filter_target_relations)?, out)?;
     }
 
     Ok(())
