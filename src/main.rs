@@ -35,6 +35,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Output statistics about the PBF file
     Stats,
 }
 

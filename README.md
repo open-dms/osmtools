@@ -6,7 +6,7 @@ CLI for filtering and extracting locality data from OSM files.
 Usage: osmtools [OPTIONS] --in-file <IN_FILE> [COMMAND]
 
 Commands:
-  stats
+  stats  Output statistics about the PBF file
   help   Print this message or the help of the given subcommand(s)
 
 Options:
