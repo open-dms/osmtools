@@ -54,8 +54,10 @@ fn main() -> Result<()> {
     };
 
     if let Some(Commands::Stats) = cli.command {
+        info!("Getting stats");
         to_stats(load_relations(cli.in_file, filter_all_relations)?, out)?;
     } else {
+        info!("Extracting localities");
         to_jsonl(load_relations(cli.in_file, filter_target_relations)?, out)?;
     }
 
