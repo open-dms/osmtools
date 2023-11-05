@@ -10,7 +10,7 @@ use serde_json::to_string;
 
 use crate::util::filter_target_relations;
 
-pub fn to_jsonl(relations: &BTreeMap<OsmId, OsmObj>, out: impl io::Write) -> Result<()> {
+pub fn to_jsonl(relations: BTreeMap<OsmId, OsmObj>, out: impl io::Write) -> Result<()> {
     // Use a buffered writer to amortize flushes.
     let mut buffer = BufWriter::new(out);
 

@@ -1,5 +1,6 @@
 use anyhow::Result;
 use itertools::Itertools;
+use log::info;
 use osmpbfreader::OsmId;
 use osmpbfreader::OsmObj;
 use std::collections::BTreeMap;
@@ -8,8 +9,10 @@ use std::io;
 
 use crate::util::filter_all_relations;
 
-pub fn to_stats(relations: &BTreeMap<OsmId, OsmObj>, mut out: impl io::Write) -> Result<()> {
+pub fn to_stats(relations: BTreeMap<OsmId, OsmObj>, mut out: impl io::Write) -> Result<()> {
     let mut boundary_types = HashMap::<&str, usize>::new();
+
+    info!("\n\nStats\n{}\nBoundary types (count):\n", "-".repeat(20));
 
     for boundary in relations
         .values()
