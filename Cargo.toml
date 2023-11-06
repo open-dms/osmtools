@@ -22,3 +22,7 @@ panic = "abort"
 strip = true
 codegen-units = 1
 lto = "thin"
+
+[profile.profile]
+inherits="release"
+strip = false
