@@ -1,8 +1,7 @@
-use crate::{
-    locality::to_jsonl,
-    stats::to_stats,
-    util::{filter_all_relations, filter_target_relations, load_relations},
-};
+mod locality;
+mod stats;
+mod util;
+
 use std::{
     io::{self, stdout},
     path::PathBuf,
@@ -12,10 +11,6 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use log::info;
 use simple_logger::SimpleLogger;
-
-pub mod locality;
-pub mod stats;
-pub mod util;
 
 #[derive(Parser)]
 struct Cli {
@@ -55,10 +50,16 @@ fn main() -> Result<()> {
 
     if let Some(Commands::Stats) = cli.command {
         info!("Getting stats");
-        to_stats(load_relations(cli.in_file, filter_all_relations)?, out)?;
+        stats::write(
+            &util::load_relations(cli.in_file, util::filter_all_relations)?,
+            out,
+        )?;
     } else {
         info!("Extracting localities");
-        to_jsonl(load_relations(cli.in_file, filter_target_relations)?, out)?;
+        locality::write(
+            &util::load_relations(cli.in_file, util::filter_target_relations)?,
+            out,
+        )?;
     }
 
     Ok(())

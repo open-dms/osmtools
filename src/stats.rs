@@ -16,7 +16,7 @@ fn sort_count(map: HashMap<&str, usize>) -> IntoIter<(&str, usize)> {
         .into_iter()
 }
 
-pub fn to_stats(relations: BTreeMap<OsmId, OsmObj>, mut out: impl io::Write) -> Result<()> {
+pub fn write(relations: &BTreeMap<OsmId, OsmObj>, mut out: impl io::Write) -> Result<()> {
     writeln!(out, "Stats\n{}", "-".repeat(20))?;
     writeln!(out, "total relations: {}", relations.len())?;
 
