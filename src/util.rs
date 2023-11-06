@@ -9,13 +9,7 @@ const TARGET_BOUNDARY_TYPES: &[&str] = &[
     "state border",
 ];
 
-pub fn filter_target_relations(obj: &OsmObj) -> bool {
-    filter_all_relations(obj)
-        && obj.tags().get("boundary").map_or(false, |boundary| {
-            TARGET_BOUNDARY_TYPES.contains(&boundary.as_str())
-        })
-}
-
+/// Filter for relations havng name and a range of `admin_level`.
 pub fn filter_all_relations(obj: &OsmObj) -> bool {
     obj.is_relation()
         && obj.tags().contains_key("name")
@@ -24,6 +18,15 @@ pub fn filter_all_relations(obj: &OsmObj) -> bool {
         })
 }
 
+/// Filter for relations. In addition to `filter_all_relations`, add boundary types.
+pub fn filter_target_relations(obj: &OsmObj) -> bool {
+    filter_all_relations(obj)
+        && obj.tags().get("boundary").map_or(false, |boundary| {
+            TARGET_BOUNDARY_TYPES.contains(&boundary.as_str())
+        })
+}
+
+/// Load PBF file from `path` and filter contents using `pred`.
 pub fn load_relations<F>(path: PathBuf, pred: F) -> Result<BTreeMap<OsmId, OsmObj>>
 where
     F: FnMut(&OsmObj) -> bool,
