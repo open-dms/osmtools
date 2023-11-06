@@ -23,12 +23,15 @@ pub fn write(relations: &BTreeMap<OsmId, OsmObj>, mut out: impl io::Write) -> Re
         add_count(tags, &mut boundaries_count, "boundary");
         add_count(tags, &mut types_count, "type");
 
-        for tag in tags.keys().filter(|tag| tag.as_str() != "boundary") {
+        for tag in tags
+            .keys()
+            .filter(|tag| !matches!(tag.as_str(), "boundary" | "type"))
+        {
             *tags_count.entry(tag).or_default() += 1;
         }
     }
 
-    writeln!(out, "Boundary values (count):\n")?;
+    writeln!(out, "\nBoundary values (count):\n")?;
 
     for (value, count) in sort_count(&boundaries_count) {
         writeln!(out, "{value} {count}")?;
