@@ -1,53 +1,62 @@
 use anyhow::Result;
 use itertools::Itertools;
-use osmpbfreader::OsmId;
-use osmpbfreader::OsmObj;
-use std::collections::BTreeMap;
-use std::collections::HashMap;
+use osmpbfreader::{OsmId, OsmObj, Tags};
+use std::collections::{BTreeMap, HashMap};
 use std::io;
-use std::vec::IntoIter;
 
-use crate::util::filter_all_relations;
-
-fn sort_count(map: HashMap<&str, usize>) -> IntoIter<(&str, usize)> {
-    map.into_iter()
-        .sorted_by(|a, b| Ord::cmp(&b.1, &a.1))
-        .collect::<Vec<_>>()
-        .into_iter()
-}
+use crate::util;
 
 pub fn write(relations: &BTreeMap<OsmId, OsmObj>, mut out: impl io::Write) -> Result<()> {
-    writeln!(out, "Stats\n{}", "-".repeat(20))?;
+    writeln!(out, "Stats\n--------------------")?;
     writeln!(out, "total relations: {}", relations.len())?;
 
-    let mut boundary_types = HashMap::<&str, usize>::new();
-    let mut tags = HashMap::<&str, usize>::new();
+    let mut tags_count = HashMap::<&str, usize>::new();
+    let mut boundaries_count = HashMap::<&str, usize>::new();
+    let mut types_count = HashMap::<&str, usize>::new();
 
-    for obj in relations.values().filter(|obj| filter_all_relations(obj)) {
-        if let Some(boundary) = obj.tags().get("boundary") {
-            *boundary_types.entry(boundary).or_default() += 1;
-        }
+    for obj in relations
+        .values()
+        .filter(|obj| util::filter_all_relations(obj))
+    {
+        let tags = obj.tags();
 
-        for tag in obj
-            .tags()
-            .keys()
-            .filter_map(|tag| if tag != "boundary" { Some(tag) } else { None })
-        {
-            *tags.entry(tag).or_default() += 1;
+        add_count(tags, &mut boundaries_count, "boundary");
+        add_count(tags, &mut types_count, "type");
+
+        for tag in tags.keys().filter(|tag| tag.as_str() != "boundary") {
+            *tags_count.entry(tag).or_default() += 1;
         }
     }
 
-    writeln!(out, "\nBoundary types (count):\n")?;
+    writeln!(out, "Boundary values (count):\n")?;
 
-    for (boundary_type, count) in sort_count(boundary_types) {
-        writeln!(out, "{boundary_type} {count}")?;
+    for (value, count) in sort_count(&boundaries_count) {
+        writeln!(out, "{value} {count}")?;
+    }
+
+    writeln!(out, "\nType values (count):\n")?;
+
+    for (value, count) in sort_count(&types_count) {
+        writeln!(out, "{value} {count}")?;
     }
 
     writeln!(out, "\nOther tags (count):\n")?;
 
-    for (tag, count) in sort_count(tags) {
+    for (tag, count) in sort_count(&tags_count) {
         writeln!(out, "{tag} {count}")?;
     }
 
     Ok(())
+}
+
+fn add_count<'a>(tags: &'a Tags, counts: &mut HashMap<&'a str, usize>, key: &str) {
+    if let Some(value) = tags.get(key) {
+        *counts.entry(value).or_default() += 1;
+    }
+}
+
+fn sort_count<'a>(
+    map: &'a HashMap<&'a str, usize>,
+) -> impl Iterator<Item = (&'a &'a str, &'a usize)> {
+    map.iter().sorted_by(|a, b| Ord::cmp(&b.1, &a.1))
 }
