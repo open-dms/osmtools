@@ -58,8 +58,6 @@ fn add_count<'a>(tags: &'a Tags, counts: &mut HashMap<&'a str, usize>, key: &str
     }
 }
 
-fn sort_count<'a>(
-    map: &'a HashMap<&'a str, usize>,
-) -> impl Iterator<Item = (&'a &'a str, &'a usize)> {
+fn sort_count<'a>(map: &'a HashMap<&'a str, usize>) -> impl Iterator<Item = (&'a &str, &usize)> {
     map.iter().sorted_by(|a, b| Ord::cmp(&b.1, &a.1))
 }
