@@ -7,47 +7,57 @@ use std::io;
 use crate::util;
 
 pub fn write(relations: &BTreeMap<OsmId, OsmObj>, mut out: impl io::Write) -> Result<()> {
-    writeln!(out, "Stats\n--------------------")?;
-    writeln!(out, "total relations: {}", relations.len())?;
-
-    let mut tags_count = HashMap::<&str, usize>::new();
-    let mut boundaries_count = HashMap::<&str, usize>::new();
-    let mut types_count = HashMap::<&str, usize>::new();
+    let mut count_relations = 0;
+    let mut count_admin = HashMap::<&str, usize>::new();
+    let mut count_boundaries = HashMap::<&str, usize>::new();
+    let mut count_tags = HashMap::<&str, usize>::new();
+    let mut count_types = HashMap::<&str, usize>::new();
 
     for obj in relations
         .values()
         .filter(|obj| util::filter_all_relations(obj))
     {
+        count_relations += 1;
+
         let tags = obj.tags();
 
-        add_count(tags, &mut boundaries_count, "boundary");
-        add_count(tags, &mut types_count, "type");
+        add_count(tags, &mut count_admin, "admin_level");
+        add_count(tags, &mut count_boundaries, "boundary");
+        add_count(tags, &mut count_types, "type");
 
         for tag in tags
             .keys()
             .filter(|tag| !matches!(tag.as_str(), "boundary" | "type"))
         {
-            *tags_count.entry(tag).or_default() += 1;
+            *count_tags.entry(tag).or_default() += 1;
         }
     }
 
-    writeln!(out, "\nBoundary values (count):\n")?;
+    write!(
+        out,
+        "\
+Stats
+--------------------
+Total number of relations: {count_relations}
 
-    for (value, count) in sort_count(&boundaries_count) {
-        writeln!(out, "{value} {count}")?;
-    }
+Administrative levels (count):
 
-    writeln!(out, "\nType values (count):\n")?;
+{}
+Boundary values (count):
 
-    for (value, count) in sort_count(&types_count) {
-        writeln!(out, "{value} {count}")?;
-    }
+{}
+Type values (count):
 
-    writeln!(out, "\nOther tags (count):\n")?;
+{}
+Other tags ({}):
 
-    for (tag, count) in sort_count(&tags_count) {
-        writeln!(out, "{tag} {count}")?;
-    }
+{}",
+        to_string(&count_admin),
+        to_string(&count_boundaries),
+        to_string(&count_types),
+        count_tags.len(),
+        to_string(&count_tags),
+    )?;
 
     Ok(())
 }
@@ -60,4 +70,14 @@ fn add_count<'a>(tags: &'a Tags, counts: &mut HashMap<&'a str, usize>, key: &str
 
 fn sort_count<'a>(map: &'a HashMap<&'a str, usize>) -> impl Iterator<Item = (&'a &str, &usize)> {
     map.iter().sorted_by(|a, b| Ord::cmp(&b.1, &a.1))
+}
+
+fn to_string(map: &HashMap<&str, usize>) -> String {
+    let mut out = String::new();
+
+    for (value, count) in sort_count(map) {
+        out.push_str(&format!("{value} {count}\n"));
+    }
+
+    out
 }
