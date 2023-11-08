@@ -2,7 +2,7 @@ use anyhow::Result;
 use osmpbfreader::{OsmId, OsmObj, OsmPbfReader};
 use std::{collections::BTreeMap, path::PathBuf};
 
-/// Filter for relations havng name and a range of `admin_level`.
+/// Filter for relations having name and a range of `admin_level`.
 pub fn filter_all_relations(obj: &OsmObj) -> bool {
     obj.is_relation()
 }
