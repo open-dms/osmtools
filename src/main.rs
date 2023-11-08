@@ -30,7 +30,7 @@ struct Cli {
 enum Commands {
     /// Output statistics about the PBF file
     Stats {
-        /// Path to output file. If unspecified output is written to stdout.
+        /// Show stats for all relations, using minimal filters.
         #[arg(short, long)]
         all: bool,
     },
