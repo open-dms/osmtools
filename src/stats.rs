@@ -68,14 +68,10 @@ fn add_count<'a>(tags: &'a Tags, counts: &mut HashMap<&'a str, usize>, key: &str
     }
 }
 
-fn sort_count<'a>(map: &'a HashMap<&'a str, usize>) -> impl Iterator<Item = (&'a &str, &usize)> {
-    map.iter().sorted_by(|a, b| Ord::cmp(&b.1, &a.1))
-}
-
 fn to_string(map: &HashMap<&str, usize>) -> String {
     let mut out = String::new();
 
-    for (value, count) in sort_count(map) {
+    for (value, count) in map.iter().sorted_by(|a, b| Ord::cmp(&b.1, &a.1)) {
         out.push_str(&format!("{value} {count}\n"));
     }
 
