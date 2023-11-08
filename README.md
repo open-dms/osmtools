@@ -13,5 +13,10 @@ Options:
   -i, --in-file <IN_FILE>    PBF file to read
   -o, --out-file <OUT_FILE>  Path to output file. If unspecified output is
                              written to stdout
-  -h, --help                 Print help
+
+Usage: osmtools --in-file <IN_FILE> stats [OPTIONS]
+
+Options:
+  -a, --all   Show stats for all relations, using minimal filters
+  -h, --help  Print help
 ```
