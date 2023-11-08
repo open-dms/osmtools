@@ -29,7 +29,11 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     /// Output statistics about the PBF file
-    Stats,
+    Stats {
+        /// Path to output file. If unspecified output is written to stdout.
+        #[arg(short, long)]
+        all: bool,
+    },
 }
 
 fn main() -> Result<()> {
@@ -48,10 +52,17 @@ fn main() -> Result<()> {
         Box::new(stdout())
     };
 
-    if let Some(Commands::Stats) = cli.command {
+    if let Some(Commands::Stats { all }) = cli.command {
         info!("Getting stats");
         stats::write(
-            &util::load_relations(cli.in_file, util::filter_all_relations)?,
+            &util::load_relations(
+                cli.in_file,
+                if all {
+                    util::filter_all_relations
+                } else {
+                    util::filter_target_relations
+                },
+            )?,
             out,
         )?;
     } else {
