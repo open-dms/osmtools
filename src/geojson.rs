@@ -9,16 +9,13 @@ use geojson::{self, GeoJson, Geometry};
 use osmpbfreader::{OsmId, OsmObj, Ref, Way};
 use serde_json::json;
 
-use crate::util::{self, FloatTuple};
+use crate::{filter, util::FloatTuple};
 
 pub fn write(objs: &BTreeMap<OsmId, OsmObj>, out: impl io::Write) -> Result<()> {
     // Use a buffered writer to amortize flushes.
     let mut buffer = BufWriter::new(out);
 
-    for relation in objs
-        .values()
-        .filter(|obj| util::filter_target_relations(obj))
-    {
+    for relation in objs.values().filter(|obj| filter::by_target(obj)) {
         if let Some(feature) = to_feature(relation, objs) {
             let serialized = feature.to_string();
             writeln!(buffer, "{serialized}")?;

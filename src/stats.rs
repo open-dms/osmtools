@@ -4,7 +4,7 @@ use osmpbfreader::{OsmId, OsmObj, Tags};
 use std::collections::{BTreeMap, HashMap};
 use std::io;
 
-use crate::util;
+use crate::filter;
 
 pub fn write(relations: &BTreeMap<OsmId, OsmObj>, mut out: impl io::Write) -> Result<()> {
     let mut count_relations = 0;
@@ -13,10 +13,7 @@ pub fn write(relations: &BTreeMap<OsmId, OsmObj>, mut out: impl io::Write) -> Re
     let mut count_tags = HashMap::<&str, usize>::new();
     let mut count_types = HashMap::<&str, usize>::new();
 
-    for obj in relations
-        .values()
-        .filter(|obj| util::filter_all_relations(obj))
-    {
+    for obj in relations.values().filter(|obj| filter::all(obj)) {
         count_relations += 1;
 
         let tags = obj.tags();
