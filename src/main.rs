@@ -1,3 +1,4 @@
+mod filter;
 mod geojson;
 mod stats;
 mod util;
@@ -10,6 +11,7 @@ use std::{
 use anyhow::{bail, Result};
 use clap::{Parser, Subcommand};
 use log::info;
+use osmpbfreader::OsmObj;
 use simple_logger::SimpleLogger;
 
 #[derive(Parser)]
@@ -25,6 +27,10 @@ struct Cli {
     /// Output format.
     #[arg(short, long, value_parser=["geojson", "raw"], default_value = "geojson")]
     format: Option<String>,
+
+    /// Query for relations with matching name. (Sub)string or pattern allowed.
+    #[arg(short, long)]
+    query: Option<String>,
 
     #[command(subcommand)]
     command: Option<Commands>,
@@ -57,39 +63,39 @@ fn main() -> Result<()> {
     };
 
     if let Some(Commands::Stats { all }) = cli.command {
+        if cli.query.is_some() {
+            // todo implement --query for stats
+            bail!("Sorry, '--query' is not implemented for stats yet.");
+        }
         info!("Getting stats");
         stats::write(
             &util::load_relations(
                 cli.in_file,
-                if all {
-                    util::filter_all_relations
-                } else {
-                    util::filter_target_relations
-                },
+                if all { filter::all } else { filter::by_target },
             )?,
             out,
         )?;
     } else {
         info!("Extracting localities");
+
+        let filter = |obj: &OsmObj| -> bool {
+            let query_filter = cli.query.as_ref().map(|query| filter::by_query(query));
+            filter::by_target(obj) && query_filter.as_ref().map_or(true, |f| f(obj))
+        };
+
         match cli.format.as_deref() {
             Some("raw") => {
-                let objs = util::load_relations(cli.in_file, util::filter_target_relations)?;
+                let objs = util::load_relations(cli.in_file, &filter)?;
 
                 // Use a buffered writer to amortize flushes.
                 let mut buffer = BufWriter::new(out);
 
-                for relation in objs
-                    .values()
-                    .filter(|obj| util::filter_target_relations(obj))
-                {
+                for relation in objs.values().filter(|obj| filter(obj)) {
                     writeln!(buffer, "{}", serde_json::to_string(&relation)?)?;
                 }
             }
             Some("geojson") | None => {
-                geojson::write(
-                    &util::load_relations(cli.in_file, util::filter_target_relations)?,
-                    out,
-                )?;
+                geojson::write(&util::load_relations(cli.in_file, &filter)?, out)?;
             }
             _ => unreachable!(),
         }
