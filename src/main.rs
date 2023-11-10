@@ -1,13 +1,13 @@
-mod locality;
+mod geojson;
 mod stats;
 mod util;
 
 use std::{
-    io::{self, stdout},
+    io::{self, stdout, BufWriter, Write},
     path::PathBuf,
 };
 
-use anyhow::Result;
+use anyhow::{bail, Result};
 use clap::{Parser, Subcommand};
 use log::info;
 use simple_logger::SimpleLogger;
@@ -21,6 +21,10 @@ struct Cli {
     /// Path to output file. If unspecified output is written to stdout.
     #[arg(short, long)]
     out_file: Option<PathBuf>,
+
+    /// Output format.
+    #[arg(short, long, value_parser=["geojson", "raw"], default_value = "geojson")]
+    format: Option<String>,
 
     #[command(subcommand)]
     command: Option<Commands>,
@@ -67,10 +71,28 @@ fn main() -> Result<()> {
         )?;
     } else {
         info!("Extracting localities");
-        locality::write(
-            &util::load_relations(cli.in_file, util::filter_target_relations)?,
-            out,
-        )?;
+        match cli.format.as_deref() {
+            Some("raw") => {
+                let objs = util::load_relations(cli.in_file, util::filter_target_relations)?;
+
+                // Use a buffered writer to amortize flushes.
+                let mut buffer = BufWriter::new(out);
+
+                for relation in objs
+                    .values()
+                    .filter(|obj| util::filter_target_relations(obj))
+                {
+                    writeln!(buffer, "{}", serde_json::to_string(&relation)?)?;
+                }
+            }
+            Some("geojson") | None => {
+                geojson::write(
+                    &util::load_relations(cli.in_file, util::filter_target_relations)?,
+                    out,
+                )?;
+            }
+            _ => unreachable!(),
+        }
     }
 
     Ok(())
