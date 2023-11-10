@@ -73,6 +73,7 @@ fn as_polygon(obj: &OsmObj, all_objs: &BTreeMap<OsmId, OsmObj>) -> Option<geojso
         .refs
         .iter()
         .filter_map(|child: &Ref| {
+            // todo treat 'inner' and contained relations as well
             if matches!(child.role.as_str(), "outer") {
                 Some(to_coords(all_objs.get(&child.member)?.way()?)?)
             } else {
@@ -82,11 +83,17 @@ fn as_polygon(obj: &OsmObj, all_objs: &BTreeMap<OsmId, OsmObj>) -> Option<geojso
         .collect();
 
     // todo report missing geometry or broken linering
-    let linering = create_continuous_linering(&linestrings).ok()?;
+    let mut linering = create_continuous_linering(&linestrings).ok()?;
+
+    // respect right hand rule
+    if is_clockwise(&linering) {
+        linering.reverse();
+    }
 
     Some(geojson::Value::Polygon(vec![linering]))
 }
 
+/// create a continuous ring from line strings
 fn create_continuous_linering(
     linestrings: &Vec<Vec<geojson::Position>>,
 ) -> Result<Vec<geojson::Position>> {
@@ -162,4 +169,37 @@ fn create_continuous_linering(
     }
 
     Ok(continuous_line)
+}
+
+/// Calculate the orientation of the ring
+fn is_clockwise(ring: &[geojson::Position]) -> bool {
+    // Calculate the signed area under the curve (Shoelace formula).
+
+    let cur = ring.iter();
+    let next = ring.iter().chain(ring.iter()).skip(1);
+    cur.zip(next).map(|(cur, next)| {
+        // For each coordinate pair from `cur` and `next`, i.e., (x1, x2), (y1, y2), ...
+        // -- LOL, this works for arbitrary dimensions.
+        cur.iter()
+            .zip(next.iter())
+            // Only look at the first two dimensions since positions only have (x, y)
+            // coordinates. Not sure why geojson needs an arbitrary number of dimension, i.e.,
+            // `Vec` vs. `[f64; 2]`/`[f64; 3]` or some `Position2`/`Position3` structs.
+            .take(2)
+            // Zip the iterator over coordinates with an iterator yielding the sign in
+            // addition. Only two elements here since we restrict ourself to two dimensions.
+            .zip([-1.0, 1.0].iter())
+            // In each dimension perform the coordinate sum over (cur, next) with the
+            // correct sign.
+            .map(|((x1, x2), sign)| x2 + sign * x1)
+            // Multiply all the sums.
+            .product::<f64>()
+    })
+    // Sum up all the area segments.
+    .sum::<f64>()
+    // If the area is larger than one, the ring is clockwise.
+    // TODO: hier wird area==0.0 nicht behandelt weswegen rings mit zwei Punkten gleichzeitig
+    // clock- und anticlockwise sind. Konsistenter wäre wahrscheinlich es in einmer der beide
+    // Fälle mitzunehmen, z.B. `>=0.0`.
+    > 0.0
 }
