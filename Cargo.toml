@@ -26,3 +26,4 @@ lto = "thin"
 [profile.profile]
 inherits="release"
 strip = false
+debug = true
