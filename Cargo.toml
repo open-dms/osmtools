@@ -23,7 +23,7 @@ strip = true
 codegen-units = 1
 lto = "thin"
 
-[profile.profile]
+[profile.profiling]
 inherits="release"
 strip = false
 debug = true
