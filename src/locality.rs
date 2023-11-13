@@ -203,3 +203,41 @@ fn is_clockwise(ring: &[geojson::Position]) -> bool {
     // Fälle mitzunehmen, z.B. `>=0.0`.
     > 0.0
 }
+
+#[cfg(test)]
+mod test {
+    #[test]
+    fn is_clockwise() {
+        use super::is_clockwise;
+
+        // Points in the four quadrants of a cartesian coordinate system. Numbering here is
+        // counterclockwise.
+        let q1 = vec![1.0, 1.0];
+        let q2 = vec![1.0, -1.0];
+        let q3 = vec![-1.0, -1.0];
+        let q4 = vec![-1.0, 1.0];
+
+        // Degenerate cases.
+        assert!(!is_clockwise(&[]));
+        // assert!(is_clockwise(&[geojson::Position::default()])); // TODO: panics.
+        assert!(!is_clockwise(&vec![q1.clone()]));
+
+        // Segments with two elements are both clock- and counterclockwise.
+        assert!(!is_clockwise(&vec![q1.clone(), q2.clone()]));
+        assert!(!is_clockwise(&vec![q2.clone(), q1.clone()]));
+
+        assert!(is_clockwise(&vec![
+            q1.clone(),
+            q2.clone(),
+            q3.clone(),
+            q4.clone()
+        ]));
+
+        assert!(!is_clockwise(&vec![
+            q4.clone(),
+            q3.clone(),
+            q2.clone(),
+            q1.clone()
+        ]));
+    }
+}
