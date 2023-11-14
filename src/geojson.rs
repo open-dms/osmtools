@@ -6,7 +6,6 @@ use std::{
 
 use anyhow::{bail, Context, Result};
 use geojson::{self, GeoJson, Geometry};
-use itertools::Itertools;
 use osmpbfreader::{OsmId, OsmObj, Ref, Way};
 use serde_json::json;
 
@@ -28,10 +27,12 @@ pub fn write(objs: &BTreeMap<OsmId, OsmObj>, out: impl io::Write) -> Result<()> 
 
 fn to_feature(obj: &OsmObj, all_objs: &BTreeMap<OsmId, OsmObj>) -> Option<geojson::GeoJson> {
     let tags = obj.tags();
-    let name = [tags.get("name:prefix"), tags.get("name")]
-        .iter()
-        .filter_map(|&f| f)
-        .join(" ");
+    let name = {
+        let n = tags.get("name")?;
+        tags.get("name:prefix")
+            .map(|p| format!("{p} {n}"))
+            .unwrap_or(n.to_string())
+    };
     let admin_level = tags.get("admin_level")?;
     let ars = tags.get("de:regionalschluessel")?;
 
