@@ -6,6 +6,7 @@ use std::{
 
 use anyhow::{bail, Context, Result};
 use geojson::{self, GeoJson, Geometry};
+use itertools::Itertools;
 use osmpbfreader::{OsmId, OsmObj, Ref, Way};
 use serde_json::json;
 
@@ -27,25 +28,28 @@ pub fn write(objs: &BTreeMap<OsmId, OsmObj>, out: impl io::Write) -> Result<()> 
 
 fn to_feature(obj: &OsmObj, all_objs: &BTreeMap<OsmId, OsmObj>) -> Option<geojson::GeoJson> {
     let tags = obj.tags();
-    let name = tags.get("name")?;
+    let name = [tags.get("name:prefix"), tags.get("name")]
+        .iter()
+        .filter_map(|&f| f)
+        .join(" ");
     let admin_level = tags.get("admin_level")?;
     let ars = tags.get("de:regionalschluessel")?;
 
     let serde_json::Value::Object(properties) = json!({
+        "name": name,
         "adminLevel":admin_level.parse::<u8>().ok()?,
         "ars": ars,
-        "name": name,
-        "osm:id": obj.relation()?.id.0,
-        "osm:type": "relation",
     }) else {
         return None;
     };
 
+    let geometry = Geometry::new(as_polygon(obj, all_objs)?);
+
     Some(GeoJson::Feature(geojson::Feature {
-        geometry: Some(Geometry::new(as_polygon(obj, all_objs)?)),
         id: Some(geojson::feature::Id::Number(
             serde_json::value::Number::from(obj.relation()?.id.0),
         )),
+        geometry: Some(geometry),
         properties: Some(properties),
         ..geojson::Feature::default()
     }))
