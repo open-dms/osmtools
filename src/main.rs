@@ -112,6 +112,7 @@ fn main() -> Result<()> {
                 }
             }
             Some("geojson") | None => {
+                info!("Transforming to geojson");
                 if cli.exclude_refs {
                     bail!("Sorry, '--exclude-refs' only works for --format='raw'.");
                 }

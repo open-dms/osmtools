@@ -5,6 +5,7 @@ use std::{
 };
 
 use anyhow::{bail, Context, Result};
+use convert_case::{Case, Casing};
 use geojson::{self, GeoJson, Geometry};
 use osmpbfreader::{OsmId, OsmObj, Ref, Way};
 use serde_json::json;
@@ -36,13 +37,23 @@ fn to_feature(obj: &OsmObj, all_objs: &BTreeMap<OsmId, OsmObj>) -> Option<geojso
     let admin_level = tags.get("admin_level")?;
     let ars = tags.get("de:regionalschluessel")?;
 
-    let serde_json::Value::Object(properties) = json!({
+    let serde_json::Value::Object(mut properties) = json!({
         "name": name,
-        "adminLevel":admin_level.parse::<u8>().ok()?,
+        "adminLevel": admin_level.parse::<u8>().ok()?,
         "ars": ars,
     }) else {
         return None;
     };
+
+    ["border_type", "place"]
+        .iter()
+        .filter_map(|&key| Some((key, tags.get(key)?)))
+        .for_each(|(key, value)| {
+            properties.insert(
+                key.to_string().to_case(Case::Camel),
+                serde_json::Value::String(value.to_string()),
+            );
+        });
 
     let geometry = Geometry::new(as_polygon(obj, all_objs)?);
 
