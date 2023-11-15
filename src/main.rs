@@ -14,6 +14,8 @@ use log::info;
 use osmpbfreader::OsmObj;
 use simple_logger::SimpleLogger;
 
+use crate::util::RelationWithoutRefs;
+
 #[derive(Parser)]
 struct Cli {
     /// PBF file to read.
@@ -31,6 +33,10 @@ struct Cli {
     /// Query for relations with matching name. (Sub)string or pattern allowed.
     #[arg(short, long)]
     query: Option<String>,
+
+    /// Exclude refs from output when --format is 'raw'.
+    #[arg(long)]
+    exclude_refs: bool,
 
     #[command(subcommand)]
     command: Option<Commands>,
@@ -67,6 +73,9 @@ fn main() -> Result<()> {
             // todo implement --query for stats
             bail!("Sorry, '--query' is not implemented for stats yet.");
         }
+        if cli.exclude_refs {
+            bail!("Sorry, '--exclude-refs' does not work for stats.");
+        }
         info!("Getting stats");
         stats::write(
             &util::load_relations(
@@ -91,10 +100,21 @@ fn main() -> Result<()> {
                 let mut buffer = BufWriter::new(out);
 
                 for relation in objs.values().filter(|obj| filter(obj)) {
-                    writeln!(buffer, "{}", serde_json::to_string(&relation)?)?;
+                    let serialized = if cli.exclude_refs {
+                        serde_json::to_string(&RelationWithoutRefs {
+                            id: relation.id(),
+                            tags: relation.tags().clone(),
+                        })?
+                    } else {
+                        serde_json::to_string(&relation)?
+                    };
+                    writeln!(buffer, "{serialized}")?;
                 }
             }
             Some("geojson") | None => {
+                if cli.exclude_refs {
+                    bail!("Sorry, '--exclude-refs' only works for --format='raw'.");
+                }
                 geojson::write(&util::load_relations(cli.in_file, &filter)?, out)?;
             }
             _ => unreachable!(),

@@ -30,3 +30,9 @@ impl Hash for FloatTuple {
 }
 
 impl Eq for FloatTuple {} // No additional methods needed, just equality checks.
+
+#[derive(serde::Serialize)]
+pub struct RelationWithoutRefs {
+    pub id: osmpbfreader::OsmId,
+    pub tags: osmpbfreader::Tags,
+}

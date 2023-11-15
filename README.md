@@ -10,11 +10,12 @@ Commands:
   help   Print this message or the help of the given subcommand(s)
 
 Options:
-  -i, --in-file <IN_FILE>    PBF file to read
-  -o, --out-file <OUT_FILE>  Path to output file. If unspecified output is written to stdout
-  -f, --format <FORMAT>      Output format [default: geojson] [possible values: geojson, raw]
-  -q, --query <QUERY>        Query for relations with matching name. (Sub)string or pattern allowed
-  -h, --help                 Print help
+  -i, --in-file <IN_FILE>            PBF file to read
+  -o, --out-file <OUT_FILE>          Path to output file. If unspecified output is written to stdout
+  -f, --format <FORMAT>              Output format [default: geojson] [possible values: geojson, raw]
+  -q, --query <QUERY>                Query for relations with matching name. (Sub)string or pattern allowed
+      --exclude-refs <EXCLUDE_REFS>  Exclude refs from output when --format is 'raw'
+  -h, --help                         Print help
 
 Output statistics about the PBF file
 
