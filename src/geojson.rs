@@ -10,7 +10,19 @@ use log::error;
 use osmpbfreader::{OsmId, OsmObj, Ref, Way};
 use serde_json::json;
 
-use crate::{filter, util::FloatTuple};
+use crate::filter;
+
+#[derive(Debug, Eq, PartialEq, Hash, Copy, Clone)]
+struct Position(
+    ordered_float::OrderedFloat<f64>,
+    ordered_float::OrderedFloat<f64>,
+);
+
+impl Position {
+    pub fn new(x: f64, y: f64) -> Self {
+        Self(x.into(), y.into())
+    }
+}
 
 pub fn write(objs: &BTreeMap<OsmId, OsmObj>, out: impl io::Write) -> Result<()> {
     // Use a buffered writer to amortize flushes.
@@ -75,15 +87,15 @@ fn to_feature(obj: &OsmObj, all_objs: &BTreeMap<OsmId, OsmObj>) -> Result<geojso
 }
 
 fn as_polygon(obj: &OsmObj, all_objs: &BTreeMap<OsmId, OsmObj>) -> Result<geojson::Value> {
-    let to_coords = |way: &Way| -> Option<Vec<geojson::Position>> {
+    let to_coords = |way: &Way| -> Option<Vec<Position>> {
         way.nodes
             .iter()
             .map(|node_id| {
                 let node = all_objs.get(&OsmId::Node(*node_id))?;
-                Some(vec![
+                Some(Position::new(
                     f64::from(node.node()?.decimicro_lon) / 10_000_000.0,
                     f64::from(node.node()?.decimicro_lat) / 10_000_000.0,
-                ])
+                ))
             })
             .collect()
     };
@@ -111,25 +123,26 @@ fn as_polygon(obj: &OsmObj, all_objs: &BTreeMap<OsmId, OsmObj>) -> Result<geojso
         linering.reverse();
     }
 
-    Ok(geojson::Value::Polygon(vec![linering]))
+    Ok(geojson::Value::Polygon(vec![linering
+        .iter()
+        .map(|p| vec![*p.0, *p.1])
+        .collect()]))
 }
 
 /// create a continuous ring from line strings
-fn create_continuous_linering(
-    linestrings: &Vec<Vec<geojson::Position>>,
-) -> Result<Vec<geojson::Position>> {
+fn create_continuous_linering(linestrings: &Vec<Vec<Position>>) -> Result<Vec<Position>> {
     if linestrings.is_empty() || linestrings.iter().any(|ls| ls.len() < 2) {
         bail!("No linestrings or a linestring has less than 2 positions")
     }
 
     // Convert the endpoint positions to a hashable type (tuple) and build the index map
-    let mut endpoints: HashMap<FloatTuple, Vec<usize>> = HashMap::new();
+    let mut endpoints: HashMap<Position, Vec<usize>> = HashMap::new();
     for (i, linestring) in linestrings.iter().enumerate() {
-        let start = FloatTuple(
-            linestring.first().context("Empty linestring")?[0],
-            linestring.first().unwrap()[1],
+        let start = Position::new(
+            *linestring.first().context("Empty linestring")?.0,
+            *linestring.first().unwrap().1,
         );
-        let end = FloatTuple(linestring.last().unwrap()[0], linestring.last().unwrap()[1]);
+        let end = Position::new(*linestring.last().unwrap().0, *linestring.last().unwrap().1);
         endpoints.entry(start).or_default().push(i);
         if start != end {
             // Avoid double entry for loops
@@ -146,10 +159,7 @@ fn create_continuous_linering(
     used_linestrings.insert(first_index);
 
     while used_linestrings.len() < linestrings.len() {
-        let current_end_key = {
-            let x = continuous_line.last().context("Empty line ring")?;
-            FloatTuple(x[0], x[1])
-        };
+        let current_end_key = continuous_line.last().context("Empty line ring")?;
 
         let Some(indices) = endpoints.get(&current_end_key) else {
             bail!("No more matching linestrings found")
@@ -160,23 +170,15 @@ fn create_continuous_linering(
         };
 
         let next_linestring = &linestrings[next_index];
-        let next_start_key = FloatTuple(next_linestring[0][0], next_linestring[0][1]);
-        let next_end_key = {
-            let x = next_linestring.last().context("Next linestring empty")?;
-            FloatTuple(x[0], x[1])
-        };
+        let next_start_key = Position::new(*next_linestring[0].0, *next_linestring[0].1);
+        let next_end_key = next_linestring.last().context("Next linestring empty")?;
 
-        if current_end_key == next_start_key {
+        if current_end_key == &next_start_key {
             // If the current end matches the next start, extend normally
             continuous_line.extend_from_slice(&next_linestring[1..]);
         } else if current_end_key == next_end_key {
             // If the current end matches the next end, extend in reverse
-            continuous_line.extend(
-                next_linestring[..next_linestring.len() - 1]
-                    .iter()
-                    .rev()
-                    .cloned(),
-            );
+            continuous_line.extend(next_linestring[..next_linestring.len() - 1].iter().rev());
         } else {
             bail!("Linestrings do not form a continuous path");
         }
@@ -193,72 +195,39 @@ fn create_continuous_linering(
 }
 
 /// Calculate the orientation of the ring
-fn is_clockwise(ring: &[geojson::Position]) -> bool {
+fn is_clockwise(ring: &[Position]) -> bool {
     // Calculate the signed area under the curve (Shoelace formula).
 
     let cur = ring.iter();
     let next = ring.iter().chain(ring.iter()).skip(1);
-    cur.zip(next).map(|(cur, next)| {
-        // For each coordinate pair from `cur` and `next`, i.e., (x1, x2), (y1, y2), ...
-        // -- LOL, this works for arbitrary dimensions.
-        cur.iter()
-            .zip(next.iter())
-            // Only look at the first two dimensions since positions only have (x, y)
-            // coordinates. Not sure why geojson needs an arbitrary number of dimension, i.e.,
-            // `Vec` vs. `[f64; 2]`/`[f64; 3]` or some `Position2`/`Position3` structs.
-            .take(2)
-            // Zip the iterator over coordinates with an iterator yielding the sign in
-            // addition. Only two elements here since we restrict ourself to two dimensions.
-            .zip([-1.0, 1.0].iter())
-            // In each dimension perform the coordinate sum over (cur, next) with the
-            // correct sign.
-            .map(|((x1, x2), sign)| x2 + sign * x1)
-            // Multiply all the sums.
-            .product::<f64>()
-    })
-    // Sum up all the area segments.
-    .sum::<f64>()
-    // If the area is larger than one, the ring is clockwise.
-    // TODO: hier wird area==0.0 nicht behandelt weswegen rings mit zwei Punkten gleichzeitig
-    // clock- und anticlockwise sind. Konsistenter wäre wahrscheinlich es in einmer der beide
-    // Fälle mitzunehmen, z.B. `>=0.0`.
-    > 0.0
+    cur.zip(next)
+        .map(|(c, n)| *((n.0 - c.0) * (n.1 + c.1)))
+        .sum::<f64>()
+        > 0.0
 }
 
 #[cfg(test)]
 mod test {
     #[test]
     fn is_clockwise() {
-        use super::is_clockwise;
+        use super::{is_clockwise, Position};
 
         // Points in the four quadrants of a cartesian coordinate system. Numbering here is
         // counterclockwise.
-        let q1 = vec![1.0, 1.0];
-        let q2 = vec![1.0, -1.0];
-        let q3 = vec![-1.0, -1.0];
-        let q4 = vec![-1.0, 1.0];
+        let q1 = Position::new(1.0, 1.0);
+        let q2 = Position::new(1.0, -1.0);
+        let q3 = Position::new(-1.0, -1.0);
+        let q4 = Position::new(-1.0, 1.0);
 
         // Degenerate cases.
         assert!(!is_clockwise(&[]));
-        // assert!(is_clockwise(&[geojson::Position::default()])); // TODO: panics.
-        assert!(!is_clockwise(&vec![q1.clone()]));
+        assert!(!is_clockwise(&vec![q1]));
 
         // Segments with two elements are both clock- and counterclockwise.
-        assert!(!is_clockwise(&vec![q1.clone(), q2.clone()]));
-        assert!(!is_clockwise(&vec![q2.clone(), q1.clone()]));
+        assert!(!is_clockwise(&vec![q1, q2]));
+        assert!(!is_clockwise(&vec![q2, q1]));
 
-        assert!(is_clockwise(&vec![
-            q1.clone(),
-            q2.clone(),
-            q3.clone(),
-            q4.clone()
-        ]));
-
-        assert!(!is_clockwise(&vec![
-            q4.clone(),
-            q3.clone(),
-            q2.clone(),
-            q1.clone()
-        ]));
+        assert!(is_clockwise(&vec![q1, q2, q3, q4]));
+        assert!(!is_clockwise(&vec![q4, q3, q2, q1]));
     }
 }
