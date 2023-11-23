@@ -1,5 +1,5 @@
 mod filter;
-mod geojson;
+mod geom;
 mod stats;
 mod util;
 
@@ -95,7 +95,7 @@ fn main() -> Result<()> {
                 }
             }
             Some("geojson") | None => {
-                geojson::write(&util::load_relations(cli.in_file, &filter)?, out)?;
+                geom::write(&util::load_relations(cli.in_file, &filter)?, out)?;
             }
             _ => unreachable!(),
         }
