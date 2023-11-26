@@ -1,5 +1,6 @@
 use std::{
-    collections::{BTreeMap, HashMap, HashSet},
+    collections::{BTreeMap, BTreeSet, HashMap},
+    hash::Hash,
     io::Write,
     io::{self, BufWriter},
 };
@@ -12,7 +13,7 @@ use serde_json::json;
 
 use crate::filter;
 
-#[derive(Debug, Eq, PartialEq, Hash, Copy, Clone)]
+#[derive(Eq, PartialEq, Hash, Copy, Clone, Default)]
 struct Position(
     ordered_float::OrderedFloat<f64>,
     ordered_float::OrderedFloat<f64>,
@@ -24,7 +25,13 @@ impl Position {
     }
 }
 
-#[derive(Clone)]
+impl std::fmt::Debug for Position {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_list().entry(&*self.0).entry(&*self.1).finish()
+    }
+}
+
+#[derive(Clone, PartialEq, Eq)]
 struct Line(Vec<Position>);
 
 impl Line {
@@ -51,6 +58,12 @@ impl Line {
     }
 }
 
+impl std::fmt::Debug for Line {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
 impl TryFrom<Vec<Position>> for Line {
     type Error = &'static str;
 
@@ -60,6 +73,45 @@ impl TryFrom<Vec<Position>> for Line {
         }
 
         Ok(Self(value))
+    }
+}
+
+/// A map data structure where multiple keys can refer to the same entry. In contrast to
+/// e.g., `multi_key_map::MultiKeyMap` a key can also refer to multiple entries, so this is
+/// effectively a multi-key-multi-value map.
+#[derive(Default, Debug)]
+pub struct MultiMap<K, V> {
+    m: HashMap<K, BTreeSet<V>>,
+}
+
+impl<K: Eq + Hash, V: Ord + Copy> MultiMap<K, V> {
+    pub fn is_empty(&self) -> bool {
+        self.m.is_empty() || self.m.values().all(BTreeSet::is_empty)
+    }
+
+    pub fn insert(&mut self, key: K, value: V) {
+        self.m.entry(key).or_default().insert(value);
+    }
+
+    /// Remove a value from the map. This makes the value unreachable under any key it was added for.
+    pub fn consume_one(&mut self, key: &K) -> Option<V> {
+        let Some(x) = self.get(key).copied() else {
+            return None;
+        };
+
+        for xs in self.m.values_mut() {
+            xs.remove(&x);
+        }
+
+        Some(x)
+    }
+
+    pub fn get(&self, key: &K) -> Option<&V> {
+        self.m
+            .get(key)
+            .iter()
+            .next()
+            .and_then(|xs| xs.iter().next())
     }
 }
 
@@ -177,40 +229,27 @@ fn create_continuous_linering(linestrings: &Vec<Line>) -> Result<Line> {
     }
 
     // Convert the endpoint positions to a hashable type (tuple) and build the index map
-    let mut endpoints: HashMap<Position, Vec<usize>> = HashMap::new();
-    for (i, linestring) in linestrings.iter().enumerate() {
+    let mut endpoints = MultiMap::default();
+    for (i, linestring) in linestrings.iter().enumerate().skip(1) {
         let start = Position::new(*linestring.start().0, *linestring.start().1);
         let end = Position::new(*linestring.end().0, *linestring.end().1);
-        endpoints.entry(start).or_default().push(i);
-        if start != end {
-            // Avoid double entry for loops
-            endpoints.entry(end).or_default().push(i);
-        }
+        endpoints.insert(start, i);
+        endpoints.insert(end, i);
     }
 
     // Start from the first linestring
     let first_index = 0;
     let mut continuous_line = linestrings[first_index].clone();
 
-    // Track used linestrings to prevent infinite loops
-    let mut used_linestrings = HashSet::new();
-    used_linestrings.insert(first_index);
-
-    while used_linestrings.len() < linestrings.len() {
+    while !endpoints.is_empty() {
         let current_end_key = continuous_line.end();
 
-        let Some(indices) = endpoints.get(&current_end_key) else {
+        let Some(next_index) = endpoints.consume_one(current_end_key) else {
             bail!("No more matching linestrings found")
-        };
-
-        let Some(&next_index) = indices.iter().find(|i| !used_linestrings.contains(i)) else {
-            bail!("No matching linestring found");
         };
 
         let next_linestring = &linestrings[next_index];
         continuous_line.extend(next_linestring)?;
-
-        used_linestrings.insert(next_index);
     }
 
     // Check if the start and end positions match to close the loop
@@ -235,9 +274,29 @@ fn is_clockwise(ring: &Line) -> bool {
 
 #[cfg(test)]
 mod test {
+    use super::{Line, Position};
+
+    #[test]
+    fn extend() {
+        let p1 = Position::new(0., 0.);
+        let p2 = Position::new(1., 0.);
+
+        {
+            let mut l = Line::try_from(vec![p1, p2]).unwrap();
+            l.extend(&Line::try_from(vec![p2, p1]).unwrap()).unwrap();
+            assert_eq!(l, Line::try_from(vec![p1, p2, p1]).unwrap());
+        }
+
+        {
+            let mut l = Line::try_from(vec![p1, p2]).unwrap();
+            l.extend(&Line::try_from(vec![p1, p2]).unwrap()).unwrap();
+            assert_eq!(l, Line::try_from(vec![p1, p2, p1]).unwrap());
+        }
+    }
+
     #[test]
     fn is_clockwise() {
-        use super::{is_clockwise, Line, Position};
+        use super::is_clockwise;
 
         // Points in the four quadrants of a cartesian coordinate system. Numbering here is
         // counterclockwise.
@@ -254,5 +313,81 @@ mod test {
         assert!(!is_clockwise(
             &Line::try_from(vec![q4, q3, q2, q1]).unwrap()
         ));
+    }
+
+    #[test]
+    fn create_continuous_linering() {
+        use super::create_continuous_linering;
+
+        let p1 = Position::new(0., 0.);
+        let p2 = Position::new(1., 0.);
+        let p3 = Position::new(2., 0.);
+
+        {
+            let l = Line::try_from(vec![p1, p1]).unwrap();
+            assert_eq!(create_continuous_linering(&vec![l.clone()]).unwrap(), l);
+        }
+
+        {
+            let l = Line::try_from(vec![p1, p2, p1]).unwrap();
+            assert_eq!(create_continuous_linering(&vec![l.clone()]).unwrap(), l);
+        }
+
+        {
+            let l = Line::try_from(vec![p1, p2, p3, p1]).unwrap();
+            assert_eq!(create_continuous_linering(&vec![l.clone()]).unwrap(), l);
+        }
+
+        {
+            let l1 = Line::try_from(vec![p1, p2]).unwrap();
+            let l2 = Line::try_from(vec![p2, p1]).unwrap();
+            let l3 = Line::try_from(vec![p1, p2, p1]).unwrap();
+            assert_eq!(create_continuous_linering(&vec![l1, l2]).unwrap(), l3);
+        }
+
+        {
+            let l1 = Line::try_from(vec![p1, p2]).unwrap();
+            let l2 = Line::try_from(vec![p1, p2]).unwrap();
+            let l3 = Line::try_from(vec![p1, p2, p1]).unwrap();
+            assert_eq!(create_continuous_linering(&vec![l1, l2]).unwrap(), l3);
+        }
+    }
+
+    mod multi_map {
+        use super::super::MultiMap;
+
+        #[test]
+        fn get() {
+            let mut m = MultiMap::default();
+            m.insert(1, 12);
+            m.insert(2, 12);
+
+            assert_eq!(m.get(&1), Some(&12));
+            assert_eq!(m.get(&2), Some(&12));
+        }
+
+        #[test]
+        fn consume_one() {
+            let mut m = MultiMap::default();
+            m.insert(1, 12);
+            m.insert(2, 12);
+
+            assert_eq!(m.get(&2), Some(&12));
+            assert_eq!(m.consume_one(&1), Some(12));
+            assert_eq!(m.get(&2), None);
+        }
+
+        #[test]
+        fn is_empty() {
+            let mut m = MultiMap::default();
+            m.insert(1, 12);
+            m.insert(2, 12);
+
+            assert!(!m.is_empty());
+
+            m.consume_one(&1);
+
+            assert!(m.is_empty(), "{m:?}");
+        }
     }
 }
