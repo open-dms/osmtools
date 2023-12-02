@@ -4,8 +4,9 @@ use std::{
     io::{self, BufWriter},
 };
 
-use anyhow::{bail, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use geojson::{self, GeoJson, Geometry};
+use log::error;
 use osmpbfreader::{OsmId, OsmObj, Ref, Way};
 use serde_json::json;
 
@@ -16,39 +17,56 @@ pub fn write(objs: &BTreeMap<OsmId, OsmObj>, out: impl io::Write) -> Result<()> 
     let mut buffer = BufWriter::new(out);
 
     for relation in objs.values().filter(|obj| filter::by_target(obj)) {
-        if let Some(feature) = to_feature(relation, objs) {
-            let serialized = feature.to_string();
-            writeln!(buffer, "{serialized}")?;
+        match to_feature(relation, objs) {
+            Ok(feature) => {
+                let serialized = feature.to_string();
+                writeln!(buffer, "{serialized}")?;
+            }
+            Err(e) => error!("{e}: {}", e.root_cause()),
         }
     }
 
     Ok(())
 }
 
-fn to_feature(obj: &OsmObj, all_objs: &BTreeMap<OsmId, OsmObj>) -> Option<geojson::GeoJson> {
+fn to_feature(obj: &OsmObj, all_objs: &BTreeMap<OsmId, OsmObj>) -> Result<geojson::GeoJson> {
     let tags = obj.tags();
     let name = {
-        let n = tags.get("name")?;
+        let n = tags
+            .get("name")
+            .ok_or_else(|| anyhow!("'name' is missing"))?;
         tags.get("name:prefix")
             .map(|p| format!("{p} {n}"))
             .unwrap_or(n.to_string())
     };
-    let admin_level = tags.get("admin_level")?;
-    let ars = tags.get("de:regionalschluessel")?;
+    let admin_level = tags
+        .get("admin_level")
+        .ok_or_else(|| anyhow!("'admin_level' is missing"))?;
+    let ars = tags
+        .get("de:regionalschluessel")
+        .ok_or_else(|| anyhow!("'de:regionalschluessel' is missing"))?;
 
     let serde_json::Value::Object(properties) = json!({
         "name": name,
-        "adminLevel":admin_level.parse::<u8>().ok()?,
+        "adminLevel":admin_level.parse::<u8>()?,
         "ars": ars,
     }) else {
-        return None;
+        todo!()
     };
 
-    let geometry = Geometry::new(as_polygon(obj, all_objs)?);
+    let geometry = Geometry::new(
+        as_polygon(obj, all_objs)
+            .with_context(|| format!("cannot convert object '{name}' to polygon"))?,
+    );
 
-    Some(GeoJson::Feature(geojson::Feature {
+    Ok(GeoJson::Feature(geojson::Feature {
         id: Some(geojson::feature::Id::Number(
-            serde_json::value::Number::from(obj.relation()?.id.0),
+            serde_json::value::Number::from(
+                obj.relation()
+                    .ok_or_else(|| anyhow!("'relation' is missing"))?
+                    .id
+                    .0,
+            ),
         )),
         geometry: Some(geometry),
         properties: Some(properties),
@@ -56,7 +74,7 @@ fn to_feature(obj: &OsmObj, all_objs: &BTreeMap<OsmId, OsmObj>) -> Option<geojso
     }))
 }
 
-fn as_polygon(obj: &OsmObj, all_objs: &BTreeMap<OsmId, OsmObj>) -> Option<geojson::Value> {
+fn as_polygon(obj: &OsmObj, all_objs: &BTreeMap<OsmId, OsmObj>) -> Result<geojson::Value> {
     let to_coords = |way: &Way| -> Option<Vec<geojson::Position>> {
         way.nodes
             .iter()
@@ -71,7 +89,8 @@ fn as_polygon(obj: &OsmObj, all_objs: &BTreeMap<OsmId, OsmObj>) -> Option<geojso
     };
 
     let linestrings = obj
-        .relation()?
+        .relation()
+        .ok_or_else(|| anyhow!("'relation' is missing"))?
         .refs
         .iter()
         .filter_map(|child: &Ref| {
@@ -85,14 +104,14 @@ fn as_polygon(obj: &OsmObj, all_objs: &BTreeMap<OsmId, OsmObj>) -> Option<geojso
         .collect();
 
     // todo report missing geometry or broken linering
-    let mut linering = create_continuous_linering(&linestrings).ok()?;
+    let mut linering = create_continuous_linering(&linestrings)?;
 
     // respect right hand rule
     if is_clockwise(&linering) {
         linering.reverse();
     }
 
-    Some(geojson::Value::Polygon(vec![linering]))
+    Ok(geojson::Value::Polygon(vec![linering]))
 }
 
 /// create a continuous ring from line strings
