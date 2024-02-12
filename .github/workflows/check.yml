@@ -31,4 +31,4 @@ jobs:
         with:
           key: pre-commit-cargo-${{ hashFiles('Cargo.lock') }}
       - uses: actions/setup-python@v4
-      - uses: pre-commit/action@v3.0.0
+      - uses: pre-commit/action@v3.0.1
