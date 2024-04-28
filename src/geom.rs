@@ -221,6 +221,7 @@ fn as_polygon(obj: &OsmObj, all_objs: &BTreeMap<OsmId, OsmObj>) -> Result<geojso
 }
 
 /// Create a continuous ring from line strings.
+#[allow(clippy::ptr_arg)]
 fn create_continuous_linering(linestrings: &Vec<Line>) -> Result<Line> {
     if linestrings.is_empty() {
         bail!("no linestrings")
