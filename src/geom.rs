@@ -95,9 +95,7 @@ impl<K: Eq + Hash, V: Ord + Copy> MultiMap<K, V> {
 
     /// Remove a value from the map. This makes the value unreachable under any key it was added for.
     pub fn consume_one(&mut self, key: &K) -> Option<V> {
-        let Some(x) = self.get(key).copied() else {
-            return None;
-        };
+        let x = self.get(key).copied()?;
 
         for xs in self.m.values_mut() {
             xs.remove(&x);
@@ -205,7 +203,7 @@ fn as_polygon(obj: &OsmObj, all_objs: &BTreeMap<OsmId, OsmObj>) -> Result<geojso
             }
         })
         .filter_map(|xs: Vec<_>| Line::try_from(xs).ok())
-        .collect();
+        .collect::<Vec<_>>();
 
     // todo report missing geometry or broken linering
     let mut linering = create_continuous_linering(&linestrings)?;
@@ -223,7 +221,7 @@ fn as_polygon(obj: &OsmObj, all_objs: &BTreeMap<OsmId, OsmObj>) -> Result<geojso
 }
 
 /// Create a continuous ring from line strings.
-fn create_continuous_linering(linestrings: &Vec<Line>) -> Result<Line> {
+fn create_continuous_linering(linestrings: &[Line]) -> Result<Line> {
     if linestrings.is_empty() {
         bail!("no linestrings")
     }
