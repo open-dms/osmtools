@@ -203,7 +203,7 @@ fn as_polygon(obj: &OsmObj, all_objs: &BTreeMap<OsmId, OsmObj>) -> Result<geojso
             }
         })
         .filter_map(|xs: Vec<_>| Line::try_from(xs).ok())
-        .collect();
+        .collect::<Vec<_>>();
 
     // todo report missing geometry or broken linering
     let mut linering = create_continuous_linering(&linestrings)?;
@@ -221,8 +221,7 @@ fn as_polygon(obj: &OsmObj, all_objs: &BTreeMap<OsmId, OsmObj>) -> Result<geojso
 }
 
 /// Create a continuous ring from line strings.
-#[allow(clippy::ptr_arg)]
-fn create_continuous_linering(linestrings: &Vec<Line>) -> Result<Line> {
+fn create_continuous_linering(linestrings: &[Line]) -> Result<Line> {
     if linestrings.is_empty() {
         bail!("no linestrings")
     }
