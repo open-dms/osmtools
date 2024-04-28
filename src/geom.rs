@@ -95,9 +95,7 @@ impl<K: Eq + Hash, V: Ord + Copy> MultiMap<K, V> {
 
     /// Remove a value from the map. This makes the value unreachable under any key it was added for.
     pub fn consume_one(&mut self, key: &K) -> Option<V> {
-        let Some(x) = self.get(key).copied() else {
-            return None;
-        };
+        let x = self.get(key).copied()?;
 
         for xs in self.m.values_mut() {
             xs.remove(&x);
