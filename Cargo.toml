@@ -30,3 +30,6 @@ lto = "thin"
 inherits="release"
 strip = false
 debug = true
+
+[lints.clippy]
+pedantic = { level = "deny" }
