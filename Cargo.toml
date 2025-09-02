@@ -7,17 +7,17 @@ license = "MIT"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0.80"
-clap = { version = "4.5.1", features = ["derive"] }
-geojson = "0.24.1"
-itertools = "0.12.0"
-log = "0.4.20"
-ordered-float = "4.2.0"
-osmpbfreader = "0.16.1"
-regex = "1.10.2"
-serde = "1.0.193"
-serde_json = "1.0.109"
-simple_logger = { version = "4.3.3", features = ["stderr"] }
+anyhow = "1.0.99"
+clap = { version = "4.5.46", features = ["derive"] }
+geojson = "0.24.2"
+itertools = "0.14.0"
+log = "0.4.27"
+ordered-float = "5.0.0"
+osmpbfreader = { version = "0.19.1", features = ["serde"] }
+regex = "1.11.2"
+serde = "1.0.219"
+serde_json = "1.0.143"
+simple_logger = { version = "5.0.0", features = ["stderr"] }
 smartstring = "1.0.1"
 
 [profile.release]
