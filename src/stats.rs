@@ -2,6 +2,7 @@ use anyhow::Result;
 use itertools::Itertools;
 use osmpbfreader::{OsmId, OsmObj, Tags};
 use std::collections::{BTreeMap, HashMap};
+use std::fmt::Write;
 use std::io;
 
 use crate::filter;
@@ -69,7 +70,7 @@ fn to_string(map: &HashMap<&str, usize>) -> String {
     let mut out = String::new();
 
     for (value, count) in map.iter().sorted_by(|a, b| Ord::cmp(&b.1, &a.1)) {
-        out.push_str(&format!("{value} {count}\n"));
+        let _ = writeln!(out, "{value} {count}");
     }
 
     out
