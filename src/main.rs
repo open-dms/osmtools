@@ -53,7 +53,7 @@ fn main() -> Result<()> {
         .with_level(log::LevelFilter::Info)
         .init()?;
 
-    info!("Unpacking relations from {:?}", cli.in_file);
+    info!("Unpacking relations from {}", cli.in_file.display());
 
     let out: Box<dyn io::Write> = if let Some(f) = cli.out_file {
         let f = std::fs::File::create(f)?;
@@ -80,7 +80,7 @@ fn main() -> Result<()> {
 
         let filter = |obj: &OsmObj| -> bool {
             let query_filter = cli.query.as_ref().map(|query| filter::by_query(query));
-            filter::by_target(obj) && query_filter.as_ref().map_or(true, |f| f(obj))
+            filter::by_target(obj) && query_filter.as_ref().is_none_or(|f| f(obj))
         };
 
         match cli.format.as_deref() {
